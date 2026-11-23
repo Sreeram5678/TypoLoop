@@ -1,26 +1,128 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+  --background: #fbf8f3;
+  --foreground: #2a1e17;
+  --surface-cream: #fbf8f3;
+  --surface-latte: #f5efeb;
+  --surface-oat: #efe6dd;
+  --surface-card: #ffffff;
+  --border-linen: #ddd0c2;
+  --border-subtle: #eae0d5;
+  --espresso-dark: #2a1e17;
+  --espresso-medium: #3d2b21;
+  --espresso-muted: #5e4f45;
+  --caramel-accent: #b4692c;
+  --caramel-hover: #9c551e;
+  --caramel-light: #faede0;
+  --matcha-green: #2a6f43;
+  --cherry-red: #b9382b;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background-color: #fbf8f3 !important;
+  color: #2a1e17 !important;
+  color-scheme: light;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: #fbf8f3 !important;
+  color: #2a1e17 !important;
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* Custom Selection */
+::selection {
+  background-color: rgba(180, 105, 44, 0.25);
+  color: #2a1e17;
+}
+
+/* Custom Warm Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f5efeb;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d8c9b9;
+  border-radius: 9999px;
+  border: 2px solid #f5efeb;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #c2b09d;
+}
+
+/* Keycap button tactile shadow */
+.keycap-button {
+  background-color: #efe6dd;
+  border: 1px solid #ddd0c2;
+  border-bottom: 2px solid #d8c9b9;
+  color: #2a1e17;
+  transition: all 0.1s ease-in-out;
+}
+
+.keycap-button:active {
+  transform: translateY(1.5px);
+  border-bottom-width: 0.5px;
+  box-shadow: inset 0 2px 3px rgba(42, 30, 23, 0.12);
+}
+
+/* Coffee Paper Card */
+.coffee-card {
+  background-color: #ffffff;
+  border: 1px solid #ddd0c2;
+  box-shadow: 0 1px 3px rgba(42, 30, 23, 0.04), 0 4px 14px rgba(42, 30, 23, 0.03);
+}
+
+.coffee-card-elevated {
+  background-color: #ffffff;
+  border: 1px solid #ddd0c2;
+  box-shadow: 0 4px 20px rgba(42, 30, 23, 0.06), 0 1px 3px rgba(42, 30, 23, 0.03);
+}
+
+/* Caret Pulse Animation */
+@keyframes caret-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+
+.caret-pulse {
+  animation: caret-pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Editorial broadside drop-cap */
+.drop-cap::first-letter {
+  float: left;
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: 4.75rem;
+  line-height: 0.8;
+  padding-top: 0.2rem;
+  padding-right: 0.75rem;
+  padding-bottom: 0.05rem;
+  color: #b4692c;
+  font-style: italic;
+  font-weight: 500;
+}
+
+/* Subtle paper watermark texture effect */
+.laid-paper-texture {
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(180, 105, 44, 0.015),
+    rgba(180, 105, 44, 0.015) 1px,
+    transparent 1px,
+    transparent 32px
+  );
 }
