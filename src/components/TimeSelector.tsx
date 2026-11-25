@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useId } from 'react';
 import { Timer } from 'lucide-react';
 import { sound } from '@/lib/sound';
 
@@ -24,10 +24,9 @@ export function TimeSelector({
   disabled = false,
   soundEnabled = true,
 }: TimeSelectorProps) {
+  const inputId = useId();
   const [localVal, setLocalVal] = useState<number>(duration);
   const [isDragging, setIsDragging] = useState(false);
-  const trackRef = useRef<HTMLDivElement>(null);
-  const lastSoundRef = useRef<number>(duration);
 
   // Sync external duration updates when not actively dragging
   useEffect(() => {
@@ -38,7 +37,6 @@ export function TimeSelector({
 
   const currentVal = isDragging ? localVal : duration;
 
-  // Find closest index for currentVal
   const getIndexFromDuration = (dur: number) => {
     let closestIdx = 0;
     let minDiff = Infinity;
@@ -62,107 +60,77 @@ export function TimeSelector({
       ? '100%'
       : thumbPos;
 
-  // Update value based on pointer clientX
-  const updateFromPointer = useCallback(
-    (clientX: number) => {
-      const track = trackRef.current;
-      if (!track) return;
-
-      const rect = track.getBoundingClientRect();
-      if (rect.width <= 0) return;
-
-      const usableWidth = rect.width - TRACK_INSET_PX * 2;
-      const ratio =
-        usableWidth > 0
-          ? Math.min(Math.max((clientX - rect.left - TRACK_INSET_PX) / usableWidth, 0), 1)
-          : Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
-      const targetIndex = Math.min(
-        Math.max(Math.round(ratio * (TIME_OPTIONS.length - 1)), 0),
-        TIME_OPTIONS.length - 1
-      );
-      const selectedDuration = TIME_OPTIONS[targetIndex];
-
-      setLocalVal(selectedDuration);
-      onChangeDuration(selectedDuration);
-
-      if (soundEnabled && lastSoundRef.current !== selectedDuration) {
-        sound.playKeyClick(false);
-        lastSoundRef.current = selectedDuration;
-      }
-    },
-    [onChangeDuration, soundEnabled]
-  );
-
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (disabled) return;
-    e.preventDefault();
-    e.stopPropagation();
-
-    setIsDragging(true);
-    e.currentTarget.setPointerCapture(e.pointerId);
-    updateFromPointer(e.clientX);
-  };
-
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDragging || disabled) return;
-    e.preventDefault();
-    updateFromPointer(e.clientX);
-  };
-
-  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDragging) return;
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch {
-      // silent
+  const commitDuration = (selectedDuration: number) => {
+    const changed = selectedDuration !== currentVal;
+    setLocalVal(selectedDuration);
+    onChangeDuration(selectedDuration);
+    if (soundEnabled && changed) {
+      sound.playKeyClick(false);
     }
-    setIsDragging(false);
+  };
+
+  const handleRangeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
+    const idx = Number(e.target.value);
+    const selectedDuration = TIME_OPTIONS[idx] ?? TIME_OPTIONS[0];
+    commitDuration(selectedDuration);
   };
 
   const handleSelectBenchmark = (val: number, e: React.MouseEvent) => {
     e.stopPropagation();
     if (disabled) return;
-    setLocalVal(val);
-    onChangeDuration(val);
-    if (soundEnabled) {
-      sound.playKeyClick(false);
-    }
+    commitDuration(val);
   };
 
   return (
     <div className="inline-flex items-center select-none font-mono text-xs">
       <div
-        className={`flex flex-col sm:flex-row items-center gap-3 bg-[#ede4d8] px-4 py-2.5 sm:px-5 sm:py-2.5 rounded-2xl border border-[#d8c9b8] shadow-xs transition-shadow duration-300 ${
+        className={`flex flex-col sm:flex-row items-center gap-3 sm:gap-4 bg-[#ede4d8] px-4 py-2.5 sm:px-5 sm:py-2.5 rounded-2xl border transition-all duration-200 shadow-xs ${
           isDragging
-            ? 'border-[#b4692c] bg-[#faede0] shadow-md ring-2 ring-[#b4692c]/20'
-            : 'hover:border-[#b4692c]/60'
+            ? 'border-[#b4692c] bg-[#f7ecdf] shadow-md ring-2 ring-[#b4692c]/15'
+            : 'border-[#d6c6b3] hover:border-[#b4692c]/60'
         } ${disabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
       >
         {/* Left: Timer Icon & Label */}
-        <div className="flex items-center space-x-2 text-[#b4692c]">
+        <label
+          htmlFor={inputId}
+          className="flex items-center gap-1.5 text-[#9a531d] cursor-pointer shrink-0"
+        >
           <Timer
             className={`w-4 h-4 transition-transform duration-200 ${
-              isDragging ? 'scale-115 rotate-12 text-[#b4692c]' : 'text-[#b4692c]'
+              isDragging ? 'scale-110 rotate-12 text-[#b4692c]' : 'text-[#b4692c]'
             }`}
           />
-          <span className="font-bold text-xs text-[#1f1610] tracking-wide">Time</span>
-        </div>
+          <span className="font-bold text-xs text-[#2b1e16] tracking-wide">Time</span>
+        </label>
 
-        {/* Center: Custom Smooth Scrubbing Track */}
-        <div className="flex flex-col justify-center px-1">
-          <div
-            ref={trackRef}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerUp}
-            className="relative flex items-center w-52 sm:w-60 md:w-72 h-8 cursor-pointer touch-none select-none"
-          >
+        {/* Center: Accessible Native Range Slider + Custom Track & Ticks */}
+        <div className="flex flex-col justify-center">
+          <div className="relative flex items-center w-56 sm:w-64 md:w-72 h-6">
+            {/* Native Range Input for full keyboard, pointer, and screen-reader support */}
+            <input
+              id={inputId}
+              type="range"
+              min={0}
+              max={TIME_OPTIONS.length - 1}
+              step={1}
+              value={currentIndex}
+              disabled={disabled}
+              aria-label="Test duration"
+              aria-valuetext={`${currentVal} seconds`}
+              onChange={handleRangeChange}
+              onPointerDown={() => setIsDragging(true)}
+              onPointerUp={() => setIsDragging(false)}
+              onPointerCancel={() => setIsDragging(false)}
+              onBlur={() => setIsDragging(false)}
+              className="peer absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20 m-0"
+            />
+
             {/* Background Track Bar */}
-            <div className="w-full h-2.5 bg-[#dfd2c2] rounded-full overflow-hidden relative shadow-inner">
-              {/* Dynamic Gradient Fill (Smooth spring easing to exact selected notch) */}
+            <div className="w-full h-2 bg-[#cbb8a3] rounded-full overflow-hidden relative shadow-inner pointer-events-none">
+              {/* Dynamic Gradient Fill */}
               <div
-                className="h-full bg-gradient-to-r from-[#c87d32] to-[#b4692c] rounded-full transition-all duration-200 ease-out"
+                className="h-full bg-gradient-to-r from-[#d4843a] to-[#b4692c] rounded-full transition-all duration-200 ease-out"
                 style={{ width: fillWidth }}
               />
             </div>
@@ -176,7 +144,7 @@ export function TimeSelector({
                   <div
                     key={val}
                     className={`absolute top-1/2 w-1.5 h-1.5 rounded-full transition-all duration-200 ${
-                      isPassed ? 'bg-white shadow-xs scale-110' : 'bg-[#bca997]'
+                      isPassed ? 'bg-[#fffaf3]/90 shadow-2xs' : 'bg-[#8e7a6d]/60'
                     }`}
                     style={{ left: tickPos, transform: 'translate(-50%, -50%)' }}
                   />
@@ -184,24 +152,24 @@ export function TimeSelector({
               })}
             </div>
 
-            {/* Hardware-Accelerated Smooth Thumb */}
+            {/* Custom Visual Thumb (responds to hover, drag, and keyboard focus-visible) */}
             <div
-              className={`absolute top-1/2 w-6 h-6 rounded-full bg-white border-2 border-[#b4692c] shadow-md flex items-center justify-center pointer-events-none will-change-transform transition-all duration-200 ease-out ${
-                isDragging ? 'scale-120 shadow-lg ring-4 ring-[#b4692c]/25' : 'hover:scale-110'
+              className={`absolute top-1/2 w-5 h-5 rounded-full bg-[#fffaf3] border-2 border-[#b4692c] shadow-sm flex items-center justify-center pointer-events-none will-change-transform transition-all duration-200 ease-out peer-hover:scale-110 peer-focus-visible:ring-4 peer-focus-visible:ring-[#b4692c]/30 ${
+                isDragging ? 'scale-115 shadow-md ring-4 ring-[#b4692c]/25' : ''
               }`}
               style={{ left: thumbPos, transform: 'translate(-50%, -50%)' }}
             >
               {/* Center Roasted Pip */}
               <div
-                className={`w-1.5 h-1.5 rounded-full bg-[#b4692c] transition-transform duration-150 ${
-                  isDragging ? 'scale-125 bg-[#8a4b1b]' : ''
+                className={`w-1.5 h-1.5 rounded-full transition-colors duration-150 ${
+                  isDragging ? 'bg-[#8a4b1b]' : 'bg-[#b4692c]'
                 }`}
               />
             </div>
           </div>
 
           {/* Clickable Benchmark Labels directly beneath each tick mark */}
-          <div className="relative w-52 sm:w-60 md:w-72 h-4 text-[10px] font-mono text-[#8e7a6d]">
+          <div className="relative w-56 sm:w-64 md:w-72 h-4 mt-0.5 text-[10px] font-mono tabular-nums text-[#766356]">
             {TIME_OPTIONS.map((val, idx) => {
               const tickPos = getTrackPosition(idx / (TIME_OPTIONS.length - 1));
               const isSelected = currentVal === val;
@@ -209,10 +177,11 @@ export function TimeSelector({
                 <button
                   key={val}
                   type="button"
+                  tabIndex={-1}
                   onClick={(e) => handleSelectBenchmark(val, e)}
                   style={{ position: 'absolute', left: tickPos, transform: 'translateX(-50%)' }}
-                  className={`hover:text-[#b4692c] transition-all cursor-pointer ${
-                    isSelected ? 'text-[#b4692c] font-bold scale-110' : ''
+                  className={`px-1 rounded transition-colors duration-150 cursor-pointer hover:text-[#9a531d] ${
+                    isSelected ? 'text-[#9a531d] font-bold' : ''
                   }`}
                 >
                   {val}s
@@ -223,14 +192,15 @@ export function TimeSelector({
         </div>
 
         {/* Divider */}
-        <div className="w-px h-6 bg-[#cbb8a3] hidden sm:block" />
+        <div className="w-px h-6 bg-[#cbb8a3]/80 hidden sm:block" />
 
         {/* Live Animated Duration Badge */}
         <div
-          className={`flex items-center justify-center min-w-[50px] px-2.5 py-1 rounded-xl font-bold font-mono text-xs transition-all duration-150 shadow-2xs ${
+          aria-live="polite"
+          className={`flex items-center justify-center min-w-[52px] px-2.5 py-1 rounded-xl font-bold font-mono tabular-nums text-xs transition-all duration-150 ${
             isDragging
-              ? 'bg-[#b4692c] text-white scale-110 shadow-sm'
-              : 'bg-[#faede0] text-[#b4692c] border border-[#e4ccb5]'
+              ? 'bg-[#b4692c] text-white border border-[#b4692c] shadow-sm'
+              : 'bg-[#faf1e6] text-[#9a531d] border border-[#dfc5aa] shadow-2xs'
           }`}
         >
           <span>{currentVal}s</span>
