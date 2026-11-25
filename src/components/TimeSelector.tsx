@@ -5,6 +5,11 @@ import { Timer } from 'lucide-react';
 import { sound } from '@/lib/sound';
 
 export const TIME_OPTIONS = [15, 30, 45, 60, 90, 120] as const;
+// Inset ticks from the rounded track ends so the first/last dots sit cleanly inside the pill.
+const TRACK_INSET_PX = 6;
+
+const getTrackPosition = (ratio: number) =>
+  `calc(${TRACK_INSET_PX}px + (100% - ${TRACK_INSET_PX * 2}px) * ${ratio})`;
 
 interface TimeSelectorProps {
   duration: number;
@@ -48,7 +53,14 @@ export function TimeSelector({
   };
 
   const currentIndex = getIndexFromDuration(currentVal);
-  const progressPercent = (currentIndex / (TIME_OPTIONS.length - 1)) * 100;
+  const progressRatio = currentIndex / (TIME_OPTIONS.length - 1);
+  const thumbPos = getTrackPosition(progressRatio);
+  const fillWidth =
+    currentIndex === 0
+      ? '0%'
+      : currentIndex === TIME_OPTIONS.length - 1
+      ? '100%'
+      : thumbPos;
 
   // Update value based on pointer clientX
   const updateFromPointer = useCallback(
@@ -59,7 +71,11 @@ export function TimeSelector({
       const rect = track.getBoundingClientRect();
       if (rect.width <= 0) return;
 
-      const ratio = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
+      const usableWidth = rect.width - TRACK_INSET_PX * 2;
+      const ratio =
+        usableWidth > 0
+          ? Math.min(Math.max((clientX - rect.left - TRACK_INSET_PX) / usableWidth, 0), 1)
+          : Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
       const targetIndex = Math.min(
         Math.max(Math.round(ratio * (TIME_OPTIONS.length - 1)), 0),
         TIME_OPTIONS.length - 1
@@ -140,29 +156,29 @@ export function TimeSelector({
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerUp}
-            className="relative flex items-center w-52 sm:w-60 md:w-72 h-8 cursor-pointer touch-none select-none py-2"
+            className="relative flex items-center w-52 sm:w-60 md:w-72 h-8 cursor-pointer touch-none select-none"
           >
             {/* Background Track Bar */}
             <div className="w-full h-2.5 bg-[#dfd2c2] rounded-full overflow-hidden relative shadow-inner">
               {/* Dynamic Gradient Fill (Smooth spring easing to exact selected notch) */}
               <div
                 className="h-full bg-gradient-to-r from-[#c87d32] to-[#b4692c] rounded-full transition-all duration-200 ease-out"
-                style={{ width: `${progressPercent}%` }}
+                style={{ width: fillWidth }}
               />
             </div>
 
             {/* Benchmark Tick Marks along the Track */}
-            <div className="absolute inset-x-0 flex pointer-events-none px-1">
+            <div className="absolute inset-0 pointer-events-none">
               {TIME_OPTIONS.map((val, idx) => {
-                const tickRatio = (idx / (TIME_OPTIONS.length - 1)) * 100;
+                const tickPos = getTrackPosition(idx / (TIME_OPTIONS.length - 1));
                 const isPassed = currentVal >= val;
                 return (
                   <div
                     key={val}
-                    className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${
+                    className={`absolute top-1/2 w-1.5 h-1.5 rounded-full transition-all duration-200 ${
                       isPassed ? 'bg-white shadow-xs scale-110' : 'bg-[#bca997]'
                     }`}
-                    style={{ position: 'absolute', left: `${tickRatio}%`, transform: 'translateX(-50%)' }}
+                    style={{ left: tickPos, transform: 'translate(-50%, -50%)' }}
                   />
                 );
               })}
@@ -173,7 +189,7 @@ export function TimeSelector({
               className={`absolute top-1/2 w-6 h-6 rounded-full bg-white border-2 border-[#b4692c] shadow-md flex items-center justify-center pointer-events-none will-change-transform transition-all duration-200 ease-out ${
                 isDragging ? 'scale-120 shadow-lg ring-4 ring-[#b4692c]/25' : 'hover:scale-110'
               }`}
-              style={{ left: `${progressPercent}%`, transform: 'translate(-50%, -50%)' }}
+              style={{ left: thumbPos, transform: 'translate(-50%, -50%)' }}
             >
               {/* Center Roasted Pip */}
               <div
@@ -187,14 +203,14 @@ export function TimeSelector({
           {/* Clickable Benchmark Labels directly beneath each tick mark */}
           <div className="relative w-52 sm:w-60 md:w-72 h-4 text-[10px] font-mono text-[#8e7a6d]">
             {TIME_OPTIONS.map((val, idx) => {
-              const tickRatio = (idx / (TIME_OPTIONS.length - 1)) * 100;
+              const tickPos = getTrackPosition(idx / (TIME_OPTIONS.length - 1));
               const isSelected = currentVal === val;
               return (
                 <button
                   key={val}
                   type="button"
                   onClick={(e) => handleSelectBenchmark(val, e)}
-                  style={{ position: 'absolute', left: `${tickRatio}%`, transform: 'translateX(-50%)' }}
+                  style={{ position: 'absolute', left: tickPos, transform: 'translateX(-50%)' }}
                   className={`hover:text-[#b4692c] transition-all cursor-pointer ${
                     isSelected ? 'text-[#b4692c] font-bold scale-110' : ''
                   }`}
